@@ -17,17 +17,21 @@ from app.routers import (
 
 app = FastAPI(title="Stylix API", version="0.1.0")
 
-# Comma-separated list in ALLOWED_ORIGINS (e.g. set on Render) lets you add
-# your deployed frontend URL without editing code. Always includes the
-# local dev URL too, so localhost keeps working alongside production.
+# Which websites may call this API from a browser.
+#  - localhost, for local development
+#  - any ALLOWED_ORIGINS you set (comma-separated, e.g. on Render)
+#  - this project's own Vercel addresses (production + preview), matched by
+#    pattern so a typo in the environment variable can't lock the site out
 _extra_origins = os.getenv("ALLOWED_ORIGINS", "")
 allow_origins = ["http://localhost:5173"] + [
-    o.strip() for o in _extra_origins.split(",") if o.strip()
+    o.strip().rstrip("/") for o in _extra_origins.split(",") if o.strip()
 ]
+allow_origin_regex = r"https://stylix[a-z0-9-]*\.vercel\.app"
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allow_origins,
+    allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -48,4 +52,10 @@ app.include_router(recommendations.router)
 
 @app.get("/")
 def health_check():
-    return {"status": "ok", "service": "stylix-api"}
+    # cors_origins is shown so you can confirm which version is deployed.
+    return {
+        "status": "ok",
+        "service": "stylix-api",
+        "cors_origins": allow_origins,
+        "cors_pattern": allow_origin_regex,
+    }
